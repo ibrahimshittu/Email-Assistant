@@ -7,11 +7,11 @@ from sqlalchemy.orm import Session
 from sse_starlette.sse import EventSourceResponse
 from openai import OpenAI
 
-from ...config import load_config
-from ...database import SessionLocal, Account
-from ...orchestrator import build_chat_workflow, ChatState
-from ...services import embed_texts, query_chunks
-from ...utils.template_loader import render_template
+from config import load_config
+from database import SessionLocal, Account
+from orchestrator import build_chat_workflow, ChatState
+from services import embed_texts, query_chunks
+from utils.template_loader import render_template
 
 
 router = APIRouter()

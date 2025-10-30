@@ -6,9 +6,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
-from ...config import load_config
-from ...database import SessionLocal, Account
-from ...services import NylasClient, new_state
+from config import load_config
+from database import SessionLocal, Account
+from services import NylasClient, new_state
 
 
 router = APIRouter()

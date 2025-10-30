@@ -6,7 +6,7 @@ from pathlib import Path
 import chromadb
 from chromadb.config import Settings
 
-from .config import load_config
+from config import load_config
 
 
 config = load_config()

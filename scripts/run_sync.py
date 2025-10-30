@@ -12,12 +12,12 @@ from datetime import datetime
 backend_dir = Path(__file__).resolve().parents[1] / "backend"
 sys.path.insert(0, str(backend_dir.parent))
 
-from backend.config import load_config
-from backend.database import SessionLocal
-from backend.database import Account, EmailMessage, EmailThread, SyncState
-from backend.services.nylas_client import NylasClient
-from backend.services.ingest import normalize_message, index_messages
-from backend.utils.logger import setup_logger
+from config import load_config
+from database import SessionLocal
+from database import Account, EmailMessage, EmailThread, SyncState
+from services.nylas_client import NylasClient
+from services.ingest import normalize_message, index_messages
+from utils.logger import setup_logger
 
 
 logger = setup_logger(__name__)

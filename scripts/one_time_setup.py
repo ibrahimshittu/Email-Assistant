@@ -11,9 +11,9 @@ from pathlib import Path
 backend_dir = Path(__file__).resolve().parents[1] / "backend"
 sys.path.insert(0, str(backend_dir.parent))
 
-from backend.config import load_config
-from backend.database import Base, engine
-from backend.utils.logger import setup_logger
+from config import load_config
+from database import Base, engine
+from utils.logger import setup_logger
 
 
 logger = setup_logger(__name__)

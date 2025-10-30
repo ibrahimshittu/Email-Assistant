@@ -4,8 +4,8 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from ...database import SessionLocal, Account, EmailMessage, EmailThread, SyncState
-from ...services import NylasClient, normalize_message, index_messages
+from database import SessionLocal, Account, EmailMessage, EmailThread, SyncState
+from services import NylasClient, normalize_message, index_messages
 
 
 router = APIRouter()

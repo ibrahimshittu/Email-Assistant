@@ -88,11 +88,21 @@ python scripts/one_time_setup.py
 
 ### Start Backend
 
+**Option 1 - Using helper script:**
 ```bash
+./start_backend.sh
+```
+
+**Option 2 - Manual:**
+```bash
+# From project root (NOT from backend directory!)
+source backend/venv/bin/activate
 uvicorn backend.api.main:app --reload --port 8000
 ```
 
 API docs: `http://localhost:8000/docs`
+
+**⚠️ Important:** Always run from the **project root** directory!
 
 ### Start Frontend
 

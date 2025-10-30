@@ -4,7 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
 from pathlib import Path
 
-from ..config import load_config
+from config import load_config
 
 
 config = load_config()

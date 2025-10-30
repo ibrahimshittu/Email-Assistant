@@ -7,11 +7,11 @@ from datetime import datetime
 from pydantic_ai import Agent
 from openai import OpenAI
 
-from ..config import load_config
-from ..services.ingest import embed_texts
-from ..services.vectorstore import query_chunks
-from ..utils.template_loader import render_template
-from .models.chat import ChatRequest, ChatResponse, Source
+from config import load_config
+from services.ingest import embed_texts
+from services.vectorstore import query_chunks
+from utils.template_loader import render_template
+from agents.models.chat import ChatRequest, ChatResponse, Source
 
 
 config = load_config()

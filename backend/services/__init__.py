@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-from .nylas_client import NylasClient, new_state
-from .vectorstore import query_chunks, init_chroma_collection
-from .ingest import normalize_message, index_messages, embed_texts
-from .eval import run_eval
+from services.nylas_client import NylasClient, new_state
+from services.vectorstore import query_chunks, get_or_create_collection
+from services.ingest import normalize_message, index_messages, embed_texts
+from services.eval import run_eval
 
 __all__ = [
     "NylasClient",
     "new_state",
     "query_chunks",
-    "init_chroma_collection",
+    "get_or_create_collection",
     "normalize_message",
     "index_messages",
     "embed_texts",

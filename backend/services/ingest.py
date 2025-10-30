@@ -6,9 +6,9 @@ import hashlib
 
 from openai import OpenAI
 
-from .config import load_config
-from .utils.text import html_to_text, strip_quotes_and_signature, normalize_text
-from .services.vectorstore import upsert_chunks
+from config import load_config
+from utils.text import html_to_text, strip_quotes_and_signature, normalize_text
+from services.vectorstore import upsert_chunks
 
 
 config = load_config()

@@ -6,7 +6,7 @@ from typing import Dict, Any, List
 import requests
 from tenacity import retry, wait_exponential, stop_after_attempt
 
-from .config import load_config
+from config import load_config
 
 
 config = load_config()

@@ -28,7 +28,10 @@ class AppConfig(BaseSettings):
     top_k: int = 6
 
     model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", extra="ignore"
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        protected_namespaces=('settings_',)  # Fix Pydantic warning
     )
 
     @field_validator("backend_base_url", mode="before")

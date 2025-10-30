@@ -10,33 +10,33 @@ REPLACEMENTS = [
     # Database imports
     (r'from \.\.db import', 'from ..database import'),
     (r'from \.db import', 'from .database import'),
-    (r'from backend\.db import', 'from backend.database import'),
+    (r'from backend\.db import', 'from database import'),
 
     # Models imports
     (r'from \.\.models import', 'from ..database.models import'),
     (r'from \.models import', 'from .database.models import'),
-    (r'from backend\.models import', 'from backend.database import'),
-    (r'from backend\.database\.models import', 'from backend.database import'),
+    (r'from backend\.models import', 'from database import'),
+    (r'from backend\.database\.models import', 'from database import'),
 
     # Services imports - nylas
     (r'from \.\.nylas_client import', 'from ..services.nylas_client import'),
     (r'from \.nylas_client import', 'from .services.nylas_client import'),
-    (r'from backend\.nylas_client import', 'from backend.services.nylas_client import'),
+    (r'from backend\.nylas_client import', 'from services.nylas_client import'),
 
     # Services imports - vectorstore
     (r'from \.\.vectorstore import', 'from ..services.vectorstore import'),
     (r'from \.vectorstore import', 'from .services.vectorstore import'),
-    (r'from backend\.vectorstore import', 'from backend.services.vectorstore import'),
+    (r'from backend\.vectorstore import', 'from services.vectorstore import'),
 
     # Services imports - ingest
     (r'from \.\.ingest import', 'from ..services.ingest import'),
     (r'from \.ingest import', 'from .services.ingest import'),
-    (r'from backend\.ingest import', 'from backend.services.ingest import'),
+    (r'from backend\.ingest import', 'from services.ingest import'),
 
     # Services imports - eval
     (r'from \.\.eval import', 'from ..services.eval import'),
     (r'from \.eval import', 'from .services.eval import'),
-    (r'from backend\.eval import', 'from backend.services.eval import'),
+    (r'from backend\.eval import', 'from services.eval import'),
 ]
 
 def fix_file(filepath: Path):

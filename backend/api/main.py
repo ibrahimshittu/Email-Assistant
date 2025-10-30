@@ -3,9 +3,9 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from ..config import load_config
-from ..database import Base, engine
-from .routers import auth, sync, chat, eval as eval_router
+from config import load_config
+from database import Base, engine
+from api.routers import auth, sync, chat, eval as eval_router
 
 
 config = load_config()

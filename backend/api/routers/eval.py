@@ -3,10 +3,10 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from ...config import load_config
-from ...database import SessionLocal, Account, EmailMessage
-from ...services import run_eval
-from ...orchestrator import build_chat_workflow, ChatState
+from config import load_config
+from database import SessionLocal, Account, EmailMessage
+from services import run_eval
+from orchestrator import build_chat_workflow, ChatState
 
 
 router = APIRouter()
