@@ -1,0 +1,47 @@
+# Node / Next.js
+node_modules/
+.next/
+.next/cache/
+dist/
+out/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.vercel/
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.build/
+build/
+dist/
+.venv/
+venv/
+.venv*/
+.pytest_cache/
+.mypy_cache/
+.cache/
+
+# Project storage
+storage/
+
+# OS/editor
+.DS_Store
+.vscode/
+.idea/
+
+# Frontend subfolder specifics
+frontend/node_modules/
+frontend/.next/
+
+# Backend subfolder specifics
+backend/.venv/
