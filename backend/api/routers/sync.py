@@ -26,7 +26,7 @@ async def sync_latest(db: Session = Depends(get_db)):
     if not acct:
         raise HTTPException(status_code=400, detail="No connected account")
 
-    messages = nylas.fetch_last_messages(acct.access_token, limit=200)
+    messages = nylas.fetch_last_messages(acct.nylas_grant_id, limit=200)
     norm_msgs = [normalize_message(m) for m in messages]
 
     inserted = 0

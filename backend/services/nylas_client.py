@@ -25,18 +25,18 @@ class NylasClient:
             "client_id": self.client_id,
             "redirect_uri": f"{config.backend_base_url}/nylas/callback",
             "response_type": "code",
-            "scope": "email.read-only",
+            "scope": "email.read_only",
             "state": state,
         }
         q = "&".join(f"{k}={requests.utils.quote(str(v))}" for k, v in params.items())
-        return f"{self.api_uri}/v3/authorize?{q}"
+        return f"{self.api_uri}/v3/connect/auth?{q}"
 
     @retry(
         wait=wait_exponential(multiplier=1, min=1, max=10), stop=stop_after_attempt(3)
     )
     def exchange_code(self, code: str) -> Dict[str, Any]:
         # Exchange authorization code for grant and access token
-        token_url = f"{self.api_uri}/v3/token"
+        token_url = f"{self.api_uri}/v3/connect/token"
         payload = {
             "client_id": self.client_id,
             "client_secret": self.client_secret,
@@ -52,21 +52,18 @@ class NylasClient:
         wait=wait_exponential(multiplier=1, min=1, max=10), stop=stop_after_attempt(3)
     )
     def fetch_last_messages(
-        self, access_token: str, limit: int = 200
+        self, grant_id: str, limit: int = 200
     ) -> List[Dict[str, Any]]:
         # Nylas v3 messages list
         # Docs: https://developer.nylas.com/docs/v3/reference/messages/#list-messages
         headers = {
-            "Authorization": f"Bearer {access_token}",
+            "Authorization": f"Bearer {self.client_secret}",  # Use API key
+            "Content-Type": "application/json",
         }
         params = {
-            "in": "inbox",
             "limit": limit,
-            "page_token": None,
-            "order_by": "received_at",
-            "order_dir": "desc",
         }
-        url = f"{self.api_uri}/v3/messages"
+        url = f"{self.api_uri}/v3/grants/{grant_id}/messages"
         resp = requests.get(url, headers=headers, params=params, timeout=30)
         resp.raise_for_status()
         data = resp.json()

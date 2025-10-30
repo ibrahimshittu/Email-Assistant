@@ -28,7 +28,7 @@ class AppConfig(BaseSettings):
     top_k: int = 6
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=str(Path(__file__).parent / ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
         protected_namespaces=('settings_',)  # Fix Pydantic warning
@@ -51,5 +51,5 @@ class AppConfig(BaseSettings):
 
 def load_config() -> AppConfig:
     # Ensure .env is respected for non-Settings consumers too
-    load_dotenv(Path(".env"))
+    load_dotenv(Path(__file__).parent / ".env")
     return AppConfig()

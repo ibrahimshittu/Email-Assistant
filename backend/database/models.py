@@ -41,7 +41,8 @@ class EmailMessage(Base):
 
     id = Column(Integer, primary_key=True)
     account_id = Column(Integer, ForeignKey("accounts.id"), index=True)
-    thread_id = Column(String(255), index=True)
+    email_thread_id = Column(Integer, ForeignKey("email_threads.id"), nullable=True, index=True)
+    thread_id = Column(String(255), index=True)  # Nylas thread ID
     message_id = Column(String(255), unique=True, index=True)
     from_addr = Column(String(400))
     to_addrs = Column(Text)
@@ -53,11 +54,7 @@ class EmailMessage(Base):
     has_attachments = Column(Boolean, default=False)
 
     account = relationship("Account", back_populates="messages")
-    thread = relationship(
-        "EmailThread",
-        back_populates="messages",
-        primaryjoin="EmailMessage.thread_id==EmailThread.thread_id",
-    )
+    thread = relationship("EmailThread", back_populates="messages")
 
 
 class SyncState(Base):
