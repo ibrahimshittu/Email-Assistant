@@ -48,6 +48,18 @@ class NylasClient:
         resp.raise_for_status()
         return resp.json()
 
+    def get_grant_email(self, grant_id: str) -> str:
+        """Fetch the email address associated with a grant"""
+        headers = {
+            "Authorization": f"Bearer {self.client_secret}",
+            "Content-Type": "application/json",
+        }
+        url = f"{self.api_uri}/v3/grants/{grant_id}"
+        resp = requests.get(url, headers=headers, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
+        return data.get("data", {}).get("email") or data.get("email", "unknown@example.com")
+
     @retry(
         wait=wait_exponential(multiplier=1, min=1, max=10), stop=stop_after_attempt(3)
     )
@@ -55,7 +67,7 @@ class NylasClient:
         self, grant_id: str, limit: int = 200
     ) -> List[Dict[str, Any]]:
         # Nylas v3 messages list
-        # Docs: https://developer.nylas.com/docs/v3/reference/messages/#list-messages
+        # Docs: https://developer.nylas.com/docs/v3/email/
         headers = {
             "Authorization": f"Bearer {self.client_secret}",  # Use API key
             "Content-Type": "application/json",
