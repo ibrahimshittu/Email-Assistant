@@ -128,7 +128,8 @@ class ChatAgent:
         self,
         question: str,
         contexts: Optional[List[Dict[str, Any]]] = None,
-    ) -> Dict[str, Any]:
+        max_tokens: int = 2000,
+    ) -> IntentRoute:
         """
         Clarify intent and route to appropriate action using a single LLM call.
 
@@ -142,7 +143,7 @@ class ChatAgent:
             contexts: Optional retrieved contexts with metadata and distance scores
 
         Returns:
-            Dict with routing decision containing:
+            IntentRoute with routing decision containing:
             - intent_type: 'simple' or 'email_query'
             - needs_retrieval: bool
             - has_sufficient_context: Optional[bool]
@@ -162,7 +163,7 @@ class ChatAgent:
             intent_prompt,
             model_settings={
                 "temperature": 0.0,
-                "max_tokens": 2000
+                "max_tokens": max_tokens
             }
         )
         return result.output

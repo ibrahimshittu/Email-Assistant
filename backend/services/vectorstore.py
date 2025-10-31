@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+import os
+
+# Disable ChromaDB telemetry before importing chromadb
+os.environ["ANONYMIZED_TELEMETRY"] = "False"
+os.environ["CHROMA_TELEMETRY"] = "False"
+
 from typing import List, Dict, Any
 from pathlib import Path
 
@@ -15,7 +21,12 @@ Path(config.chroma_dir).mkdir(parents=True, exist_ok=True)
 
 def get_client() -> chromadb.Client:
     return chromadb.PersistentClient(
-        path=config.chroma_dir, settings=Settings(anonymized_telemetry=False)
+        path=config.chroma_dir,
+        settings=Settings(
+            anonymized_telemetry=False,
+            allow_reset=True,
+            is_persistent=True,
+        )
     )
 
 

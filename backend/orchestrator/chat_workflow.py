@@ -27,7 +27,8 @@ async def clarify_intent(state: ChatState) -> ChatState:
 
     routing_decision = await _chat_agent.clarify_and_route(
         question=state.question,
-        contexts=None
+        contexts=state.raw_contexts,
+        max_tokens=state.max_tokens
     )
 
     if routing_decision.simple_response:
@@ -45,7 +46,7 @@ def retrieve(state: ChatState) -> ChatState:
     """Retrieve relevant email contexts using vector similarity"""
     start_time = perf_counter()
 
-    query_text = state.question
+    query_text = state.question.lower()
 
     try:
         q_emb = embed_texts([query_text])[0]

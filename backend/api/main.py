@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+import os
+
+os.environ["ANONYMIZED_TELEMETRY"] = "False"
+os.environ["CHROMA_TELEMETRY"] = "False"
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -17,9 +22,6 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         config.frontend_base_url,
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "*",
     ],
     allow_credentials=True,
     allow_methods=["*"],
