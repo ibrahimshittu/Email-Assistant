@@ -19,6 +19,7 @@ Ask questions about your inbox in plain English and get answers backed by your a
 - **LangGraph** - RAG pipeline orchestration
 - **Pydantic AI** - Structured AI agents
 - **ChromaDB** - Vector storage for email embeddings
+- **DeepEval** - Comprehensive RAG evaluation metrics
 - **SQLite** - Email metadata storage
 - **Nylas v3 API** - Email provider integration
 
@@ -90,20 +91,14 @@ CHROMA_DIR=./storage/chroma
 SQLITE_PATH=./storage/app.db
 
 # Model Configuration
-MODEL_NAME=gpt-4o-mini
 INTENT_ROUTER_MODEL=gpt-4.1-mini-2025-04-14
 ANSWER_MODEL=gpt-4.1-2025-04-14
+EVAL_MODEL=gpt-4.1
 EMBEDDING_MODEL=text-embedding-3-small
 TOP_K=6
 
 # Optional: Logging
 LOG_LEVEL=INFO
-
-# ChromaDB Telemetry (disable to prevent errors)
-ANONYMIZED_TELEMETRY=False
-CHROMA_TELEMETRY=False
-CHROMA_TELEMETRY_IMPL=chromadb.telemetry.product.posthog.Posthog
-CHROMA_TELEMETRY_DISABLE=True
 ```
 
 ### 3. Frontend Setup
@@ -212,8 +207,16 @@ The web app will be available at: http://localhost:3000
 ### 4. Run Quality Metrics (Optional)
 
 1. Visit http://localhost:3000/eval
-2. Click "Run Evaluation"
-3. Review metrics like answer relevancy, faithfulness, and response time
+2. Choose evaluation mode:
+   - **LLM Judge**: Fast binary metrics (faithfulness 0/1, relevance 0/1)
+   - **DeepEval**: Comprehensive metrics with detailed scoring
+3. Review detailed metrics including:
+   - Answer Relevancy (0.0-1.0, higher is better)
+   - Faithfulness (0.0-1.0, higher is better)
+   - Contextual Relevancy (0.0-1.0, higher is better)
+   - Contextual Recall (0.0-1.0, higher is better)
+   - Hallucination Score (0.0-1.0, lower is better)
+   - Response Time (ms)
 
 ## Project Structure
 
@@ -222,18 +225,26 @@ email_assistant/
 ├── backend/
 │   ├── api/                    # FastAPI routes and endpoints
 │   │   ├── main.py            # App initialization
-│   │   └── routers/           # Route handlers (auth, sync, chat, eval)
+│   │   └── routers/           # Route handlers
+│   │       ├── auth.py        # OAuth authentication
+│   │       ├── sync.py        # Email sync
+│   │       ├── chat.py        # Q&A endpoints
+│   │       ├── eval_llm_judge.py   # LLM-as-a-Judge evaluation
+│   │       └── eval_deepeval.py    # DeepEval comprehensive evaluation
 │   ├── agents/                # Pydantic AI agents
 │   │   └── chat_agent.py      # Intent routing and answer generation
 │   ├── orchestrator/          # LangGraph workflow
 │   │   └── chat_workflow.py   # RAG pipeline orchestration
 │   ├── services/              # Core business logic
+│   │   ├── eval/              # Evaluation services
+│   │   │   ├── llm_judge.py   # Binary metric evaluation
+│   │   │   └── deepeval.py    # Comprehensive RAG metrics
 │   │   ├── nylas_client.py    # Email provider integration
 │   │   ├── ingest.py          # Email processing and embedding
 │   │   └── vectorstore.py     # ChromaDB operations
 │   ├── templates/             # Jinja2 prompt templates
 │   ├── config.py              # Configuration management
-│   ├── database.py            # SQLAlchemy setup
+│   ├── database/              # SQLAlchemy database models
 │   └── requirements.txt       # Python dependencies
 │
 └── frontend/
@@ -290,7 +301,8 @@ Stream Response to User (with citations)
 
 ### Evaluation
 
-- `POST /eval/run` - Run evaluation suite on predefined test cases
+- `POST /eval/llm-judge` - Run LLM-as-a-Judge evaluation (binary metrics: faithfulness, relevance)
+- `POST /eval/deepeval` - Run comprehensive DeepEval evaluation (5 metrics with scoring)
 
 ## Environment Variables Reference
 
@@ -306,9 +318,9 @@ Stream Response to User (with citations)
 | `BACKEND_BASE_URL`    | Backend URL for callbacks       | `http://localhost:8000`    |
 | `CHROMA_DIR`          | ChromaDB storage directory      | `./storage/chroma`         |
 | `SQLITE_PATH`         | SQLite database path            | `./storage/app.db`         |
-| `MODEL_NAME`          | Default OpenAI model            | `gpt-4o-mini`              |
 | `INTENT_ROUTER_MODEL` | Model for intent classification | `gpt-4.1-mini-2025-04-14`  |
 | `ANSWER_MODEL`        | Model for answer generation     | `gpt-4.1-2025-04-14`       |
+| `EVAL_MODEL`          | Model for evaluation metrics    | `gpt-4.1`                  |
 | `EMBEDDING_MODEL`     | Model for embeddings            | `text-embedding-3-small`   |
 | `TOP_K`               | Number of emails to retrieve    | `6`                        |
 
@@ -362,15 +374,6 @@ Stream Response to User (with citations)
 - Check `NEXT_PUBLIC_BACKEND_BASE_URL` in `frontend/.env.local`
 - Ensure CORS is configured correctly in backend
 - Check that `FRONTEND_BASE_URL` in backend `.env` matches your frontend URL
-
-### ChromaDB Warnings
-
-**Problem**: Telemetry warnings in console
-
-**Solution**: These are already disabled in the `.env.example`. If you still see them:
-
-- Ensure `CHROMA_TELEMETRY=False` is set
-- Restart the backend server
 
 ## Storage
 

@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config import load_config
 from database import Base, engine
-from api.routers import auth, sync, chat, eval as eval_router
+from api.routers import auth, sync, chat, eval_deepeval, eval_llm_judge
 
 
 config = load_config()
@@ -41,4 +41,5 @@ async def health():
 app.include_router(auth.router, tags=["auth"])
 app.include_router(sync.router, tags=["sync"])
 app.include_router(chat.router, tags=["chat"])
-app.include_router(eval_router.router, tags=["eval"])
+app.include_router(eval_deepeval.router, tags=["eval"])
+app.include_router(eval_llm_judge.router, tags=["eval"])

@@ -30,7 +30,7 @@ def judge_faithfulness(question: str, reference_context: str, answer: str) -> in
     )
     prompt = f"Reference:\n{reference_context}\n\nAnswer:\n{answer}\n\nQuestion:\n{question}\n\n{rubric}"
     resp = _client.chat.completions.create(
-        model=config.model_name,
+        model=config.eval_model,
         messages=[{"role": "user", "content": prompt}],
         temperature=0.0,
         max_tokens=2,
@@ -43,7 +43,7 @@ def judge_relevance(question: str, answer: str) -> int:
     rubric = "Score 0-1: Is the answer relevant to the question? Return only 0 or 1."
     prompt = f"Question:\n{question}\n\nAnswer:\n{answer}\n\n{rubric}"
     resp = _client.chat.completions.create(
-        model=config.model_name,
+        model=config.eval_model,
         messages=[{"role": "user", "content": prompt}],
         temperature=0.0,
         max_tokens=2,
@@ -52,11 +52,11 @@ def judge_relevance(question: str, answer: str) -> int:
     return 1 if txt.startswith("1") else 0
 
 
-def run_eval(samples: List[Dict[str, Any]], ask_fn) -> List[EvalResult]:
+async def run_eval(samples: List[Dict[str, Any]], ask_fn) -> List[EvalResult]:
     results: List[EvalResult] = []
     for s in samples:
         t0 = perf_counter()
-        answer, _sources = ask_fn(
+        answer, _sources = await ask_fn(
             s["question"]
         )  # answer function returns (answer, sources)
         dt = int((perf_counter() - t0) * 1000)

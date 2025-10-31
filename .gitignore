@@ -45,3 +45,4 @@ frontend/.next/
 
 # Backend subfolder specifics
 backend/.venv/
+backend/.deepeval/
