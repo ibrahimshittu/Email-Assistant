@@ -19,7 +19,7 @@ class ChatRequest(BaseModel):
     """Client request model for chat endpoints"""
     question: str = Field(..., description="User's question about emails", min_length=1)
     top_k: int = Field(6, description="Number of documents to retrieve", ge=1, le=20)
-    temperature: float = Field(0.2, description="LLM temperature", ge=0.0, le=2.0)
+    temperature: float = Field(0.0, description="LLM temperature", ge=0.0, le=2.0)
     max_tokens: int = Field(500, description="Maximum tokens in response", ge=50, le=2000)
 
     model_config = {
@@ -27,7 +27,7 @@ class ChatRequest(BaseModel):
             "example": {
                 "question": "What updates do I have today?",
                 "top_k": 5,
-                "temperature": 0.5,
+                "temperature": 0.0,
                 "max_tokens": 1000
             }
         }

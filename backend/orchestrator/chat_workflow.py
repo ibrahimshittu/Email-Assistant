@@ -30,14 +30,11 @@ async def clarify_intent(state: ChatState) -> ChatState:
         contexts=None
     )
 
-    # Store simple response if provided
     if routing_decision["simple_response"]:
         state.metadata["simple_response"] = routing_decision["simple_response"]
 
-    # Set next step
     state.current_step = routing_decision["route_to"]
 
-    # Track timing
     clarify_time = (perf_counter() - start_time) * 1000
     state.metadata["clarify_intent_ms"] = round(clarify_time)
 
@@ -76,9 +73,7 @@ def retrieve(state: ChatState) -> ChatState:
         state.error = f"Retrieval failed: {e}"
         state.raw_contexts = []
 
-    # Route based on result count
     state.current_step = "rerank" if len(state.raw_contexts) > state.top_k else "generate"
-
     return state
 
 
@@ -86,7 +81,6 @@ def rerank(state: ChatState) -> ChatState:
     """Lightweight reranking of retrieved contexts"""
     start_time = perf_counter()
 
-    # Simple reranking: take top_k by distance (already sorted)
     state.reranked_contexts = state.raw_contexts[:state.top_k]
 
     rerank_time = (perf_counter() - start_time) * 1000
@@ -96,19 +90,7 @@ def rerank(state: ChatState) -> ChatState:
 
 
 def output(state: ChatState) -> ChatState:
-    """
-    Output simple responses without LLM generation.
-
-    Used for:
-    1. Simple greetings/help messages (from initial routing)
-    2. Error messages when contexts are insufficient (set by clarify_intent)
-    """
-    start_time = perf_counter()
-
-    # Priority order for answer:
-    # 1. Answer already set by clarify_intent (for insufficient contexts)
-    # 2. Simple response from metadata (for greetings/help)
-    # 3. Default fallback message
+    """Output simple responses and finalize"""
     if state.answer is None:
         if "simple_response" in state.metadata:
             state.answer = state.metadata["simple_response"]
@@ -117,26 +99,26 @@ def output(state: ChatState) -> ChatState:
 
     state.sources = []
 
-    output_time = (perf_counter() - start_time) * 1000
-    state.metadata["output_ms"] = round(output_time)
-
-    state.current_step = "finalize"
+    total_time = sum([
+        state.metadata.get("clarify_intent_ms", 0),
+        state.metadata.get("retrieve_ms", 0),
+        state.metadata.get("rerank_ms", 0),
+        state.metadata.get("generation_ms", 0)
+    ])
+    state.metadata["latency_ms"] = total_time
+    state.metadata["top_k"] = state.top_k
+    state.current_step = "done"
     return state
 
 
-def generate(state: ChatState) -> ChatState:
-    """
-    Generate answer using the ChatAgent with retrieved email contexts.
-
-    Only called for email queries with sufficient contexts.
-    """
+async def generate(state: ChatState) -> ChatState:
+    """Generate answer using retrieved email contexts"""
     start_time = perf_counter()
 
     try:
-        # Use retrieved contexts (reranked if available)
         contexts = state.reranked_contexts if state.reranked_contexts else state.raw_contexts
 
-        state.answer = _chat_agent.generate_answer(
+        state.answer = await _chat_agent.generate_answer(
             question=state.question,
             contexts=contexts,
             conversation_history=state.conversation_history,
@@ -144,7 +126,6 @@ def generate(state: ChatState) -> ChatState:
             max_tokens=state.max_tokens
         )
 
-        # Include the full text content in sources for user to see
         state.sources = []
         for ctx in contexts:
             meta = ctx.get("metadata", {}).copy()
@@ -158,22 +139,7 @@ def generate(state: ChatState) -> ChatState:
         state.error = f"Generation failed: {e}"
         state.answer = f"Sorry, I encountered an error while generating the answer: {e}"
 
-    state.current_step = "finalize"
-    return state
-
-
-def finalize(state: ChatState) -> ChatState:
-    """Finalize the response and add metadata"""
-    # Calculate total latency
-    total_time = sum([
-        state.metadata.get("clarify_intent_ms", 0),
-        state.metadata.get("retrieve_ms", 0),
-        state.metadata.get("rerank_ms", 0),
-        state.metadata.get("output_ms", 0),
-        state.metadata.get("generation_ms", 0)
-    ])
-    state.metadata["latency_ms"] = total_time
-    state.metadata["top_k"] = state.top_k
+ 
     state.current_step = "done"
     return state
 
@@ -193,25 +159,22 @@ def build_chat_workflow() -> StateGraph:
     Build the chat workflow with single LLM intent router at entry.
 
     Flow:
-      clarify_intent → [output | retrieve → [rerank] → generate] → finalize
+      clarify_intent → [output | retrieve → [rerank] → generate]
 
     Routes:
-    - Simple questions → output
-    - Email queries → retrieve → generate (with optional reranking)
+    - Simple questions → output → END
+    - Email queries → retrieve → generate (with optional reranking) → END
     """
     graph = StateGraph(ChatState)
 
-    # Add nodes
     graph.add_node("clarify_intent", clarify_intent)
     graph.add_node("output", output)
     graph.add_node("retrieve", retrieve)
     graph.add_node("rerank", rerank)
     graph.add_node("generate", generate)
-    graph.add_node("finalize", finalize)
 
     graph.set_entry_point("clarify_intent")
 
-    # Routing
     graph.add_conditional_edges(
         "clarify_intent",
         route_after_clarify_intent,
@@ -225,9 +188,8 @@ def build_chat_workflow() -> StateGraph:
     )
 
     graph.add_edge("rerank", "generate")
-    graph.add_edge("output", "finalize")
-    graph.add_edge("generate", "finalize")
-    graph.add_edge("finalize", END)
+    graph.add_edge("output", END)
+    graph.add_edge("generate", END)
 
     return graph.compile(checkpointer=_checkpointer)
 

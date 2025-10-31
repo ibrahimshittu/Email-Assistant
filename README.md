@@ -1,174 +1,175 @@
-# Email Assistant: Nylas + RAG + Next.js
+# Email Assistant
 
-An intelligent email assistant powered by RAG (Retrieval-Augmented Generation) that helps you query and understand your emails using natural language.
+A natural language interface for searching and understanding your emails. Ask questions about your inbox, and get answers backed by your actual email data.
 
-## Features
+## What it does
 
-- **Email Sync**: Connect your email via Nylas OAuth and sync messages
-- **RAG-Powered Search**: Ask questions about your emails in natural language
-- **Vector Search**: ChromaDB-powered semantic search with optional HyDE
-- **Streaming Responses**: Real-time answer generation with Server-Sent Events
-- **Citations**: All answers include source email references
-- **Evaluation**: Built-in evaluation framework for RAG quality metrics
-- **Modern UI**: Next.js 14 with shadcn/ui components
+- Syncs your email via Nylas OAuth
+- Lets you ask questions in plain English about your emails
+- Uses semantic search (not just keyword matching) to find relevant messages
+- Generates answers with citations so you can verify the sources
+- Streams responses in real-time
+
+Built with FastAPI, Next.js, ChromaDB, and OpenAI.
 
 ## Tech Stack
 
-### Backend
-- **Framework**: FastAPI with async/await support
-- **LLM**: OpenAI GPT-4o-mini for generation
-- **Embeddings**: OpenAI text-embedding-3-small
-- **Orchestration**: LangGraph for agentic RAG workflow
-- **Vector DB**: ChromaDB (persistent storage)
-- **Database**: SQLite with SQLAlchemy ORM
-- **Email**: Nylas v3 API with Hosted OAuth
-- **AI Framework**: Pydantic AI for structured agent interactions
+**Backend:**
 
-### Frontend
-- **Framework**: Next.js 14 (App Router)
-- **UI**: shadcn/ui + Tailwind CSS
-- **Language**: TypeScript
-- **Streaming**: EventSource (SSE)
+- FastAPI + async Python
+- OpenAI GPT-4o-mini for answers
+- text-embedding-3-small for semantic search
+- LangGraph for the RAG pipeline
+- ChromaDB for vector storage
+- Pydantic AI for structured agents
+- SQLite for metadata
+- Nylas v3 API for email sync
+
+**Frontend:**
+
+- Next.js 14 with App Router
+- TypeScript
+- shadcn/ui components
+- Tailwind CSS
+- Server-Sent Events for streaming
 
 ## Prerequisites
 
-- Python 3.10+
-- Node.js 18+
+- Python 3.10 or newer
+- Node.js 18 or newer
 - OpenAI API key
-- Nylas account with OAuth app configured
+- Nylas developer account
 
 ## Setup
 
-### 1. Install Dependencies
+### Install dependencies
 
 ```bash
-# Install Python dependencies
+# Backend
 pip install -r backend/requirements.txt
 
-# Install frontend dependencies
+# Frontend
 cd frontend && npm install
 ```
 
-### 2. Configure Environment
+### Configure environment
+
+Copy `.env.example` to `.env` and fill in:
 
 ```bash
-# Copy example env file
-cp .env.example .env
-
-# Edit .env and add your credentials
+OPENAI_API_KEY=sk-...
+NYLAS_CLIENT_ID=your_client_id
+NYLAS_CLIENT_SECRET=your_client_secret
+NYLAS_API_URI=https://api.us.nylas.com
+FRONTEND_BASE_URL=http://localhost:3000
+BACKEND_BASE_URL=http://localhost:8000
 ```
 
-Required environment variables:
+### Nylas OAuth setup
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `OPENAI_API_KEY` | OpenAI API key | `sk-...` |
-| `NYLAS_CLIENT_ID` | Nylas OAuth client ID | From Nylas dashboard |
-| `NYLAS_CLIENT_SECRET` | Nylas OAuth client secret | From Nylas dashboard |
-| `NYLAS_API_URI` | Nylas API endpoint | `https://api.us.nylas.com` |
-| `FRONTEND_BASE_URL` | Frontend URL | `http://localhost:3000` |
-| `BACKEND_BASE_URL` | Backend URL | `http://localhost:8000` |
+1. Sign up at [nylas.com](https://nylas.com)
+2. Create a new app in the dashboard
+3. Add callback URL: `http://localhost:8000/nylas/callback`
+4. Enable `email.read-only` scope
+5. Copy client ID and secret to your `.env`
 
-### 3. Nylas OAuth Setup
-
-1. Create a Nylas account at [https://nylas.com](https://nylas.com)
-2. Create a new application in the Nylas dashboard
-3. Configure OAuth:
-   - Add callback URL: `http://localhost:8000/nylas/callback`
-   - Enable email scopes: `email.read-only`
-4. Copy Client ID and Client Secret to `.env`
-
-### 4. Initialize Storage & Database
+### Initialize storage
 
 ```bash
 python scripts/one_time_setup.py
 ```
 
-## Running the Application
+## Running
 
-### Start Backend
+### Backend
 
-**Option 1 - Using helper script:**
+From the project root (important!):
+
 ```bash
 ./start_backend.sh
 ```
 
-**Option 2 - Manual:**
+Or manually:
 ```bash
-# From project root (NOT from backend directory!)
 source backend/venv/bin/activate
 uvicorn backend.api.main:app --reload --port 8000
 ```
 
-API docs: `http://localhost:8000/docs`
+API docs: <http://localhost:8000/docs>
 
-**⚠️ Important:** Always run from the **project root** directory!
-
-### Start Frontend
+### Frontend
 
 ```bash
 cd frontend && npm run dev
 ```
 
-UI: `http://localhost:3000`
+App: <http://localhost:3000>
 
-## Usage Flow
+## Usage
 
-1. **Connect**: Navigate to `/connect` and authorize your email
-2. **Sync**: Go to `/sync` and click "Sync Latest 200 Emails"
-3. **Chat**: Ask questions on `/chat` page
-4. **Eval**: Run evaluation on `/eval` page
+1. Go to `/connect` and authorize your email account
+2. Visit `/sync` and click "Sync Latest 200 Emails"
+3. Head to `/chat` and start asking questions
+4. Check `/eval` to run quality metrics
 
-## Architecture
+## Project Structure
 
-```
+```text
 backend/
-├── api/                    # FastAPI routers
-│   ├── main.py
-│   └── routers/           # auth, sync, chat, eval
-├── agents/                # Pydantic AI agents
-│   ├── chat_agent.py
-│   └── models/
-├── orchestrator/         # LangGraph workflows
-│   ├── chat_workflow.py  # RAG pipeline
-│   └── models/
-├── utils/                # Helpers
-├── templates/            # Jinja2 prompts
-├── config.py
-├── models.py             # SQLAlchemy models
-├── nylas_client.py       # Nylas v3 client
-├── ingest.py             # Chunking & embedding
-├── vectorstore.py        # ChromaDB wrapper
-└── eval.py
+├── api/              # FastAPI routes
+├── agents/           # Pydantic AI agents for chat and routing
+├── orchestrator/     # LangGraph workflow for RAG
+├── services/         # Email sync, embeddings, vector search
+├── templates/        # Jinja2 prompt templates
+└── utils/            # Helpers
+
+frontend/
+├── app/              # Next.js pages
+├── components/       # UI components
+└── lib/              # Client utilities
 ```
 
-### RAG Workflow
+## How the RAG workflow works
 
+```text
+User question
+    ↓
+Classify intent (simple greeting vs email query)
+    ↓
+Retrieve relevant emails from vector DB
+    ↓
+Rerank results (if many)
+    ↓
+Generate answer with citations
+    ↓
+Stream response to user
 ```
-classify_intent → maybe_hyde → retrieve → rerank → generate → finalize
-```
+
+The intent classifier routes simple questions (like "hello") directly to output, and only runs retrieval for actual email queries.
 
 ## API Endpoints
 
-- `GET /auth/nylas/url` - Get OAuth URL
-- `GET /nylas/callback` - OAuth callback
-- `POST /sync/latest` - Sync emails
-- `POST /chat` - Synchronous chat
-- `GET /chat/stream` - Streaming chat (SSE)
-- `POST /eval/run` - Run evaluation
+- `GET /auth/nylas/url` - Get OAuth authorization URL
+- `GET /nylas/callback` - Handle OAuth callback
+- `POST /sync/latest` - Sync recent emails
+- `POST /chat` - Ask a question (synchronous)
+- `POST /chat/stream` - Ask a question (streaming)
+- `POST /eval/run` - Run evaluation suite
 
 ## Troubleshooting
 
-**Nylas OAuth Fails**: Verify callback URL and credentials in `.env`
+**OAuth fails:** Check that your callback URL in Nylas dashboard matches exactly
 
-**No Search Results**: Run `python scripts/run_sync.py` to sync emails
+**No search results:** Make sure you've synced emails first
 
-**Import Errors**: Ensure running from project root
+**Import errors when running backend:** You need to run from the project root, not from inside the backend folder
+
+**ChromaDB telemetry warnings:** Fixed in chromadb 0.5.23+
 
 ## Storage
 
-- SQLite: `./storage/app.db`
-- ChromaDB: `./storage/chroma/`
+- `./storage/app.db` - SQLite database for email metadata
+- `./storage/chroma/` - ChromaDB vector embeddings
 
 ## License
 

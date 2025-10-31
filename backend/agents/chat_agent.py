@@ -37,12 +37,12 @@ class ChatAgent:
             result_type=IntentRoute,
         )
 
-    def generate_answer(
+    async def generate_answer(
         self,
         question: str,
         contexts: List[Dict[str, Any]],
         conversation_history: Optional[List[Dict[str, str]]] = None,
-        temperature: float = 0.2,
+        temperature: float = 0.0,
         max_tokens: int = 500,
     ) -> str:
         """
@@ -58,7 +58,6 @@ class ChatAgent:
         Returns:
             Generated answer as string
         """
-        # Build context text from retrieved emails
         context_parts = []
         for ctx in contexts:
             meta = ctx.get("metadata", {})
@@ -67,29 +66,23 @@ class ChatAgent:
             subject = meta.get("subject", "")
             from_addr = meta.get("from_addr", "")
 
-            # Format with metadata for better context
             context_parts.append(
                 f"[message_id={message_id} | from={from_addr} | subject={subject}]\n{text}"
             )
 
         context_text = "\n\n".join(context_parts)
 
-        # Render user prompt from template
         user_prompt = render_template(
             "chat/email_question_prompt.j2",
             context_text=context_text,
             question=question
         )
 
-        # Build message history for Pydantic AI
-        # Pydantic AI expects message_history as a list of dicts with 'role' and 'content'
         message_history = []
         if conversation_history:
-            # Add last 4 messages for context window
             message_history = conversation_history[-4:]
 
-        # Run the agent with structured output
-        result = self.answer_agent.run_sync(
+        result = await self.answer_agent.run(
             user_prompt,
             message_history=message_history,
             model_settings={
@@ -98,9 +91,7 @@ class ChatAgent:
             }
         )
 
-        # Extract the structured data
         email_answer: EmailAnswer = result.data
-
         return email_answer.answer
 
     async def clarify_and_route(
@@ -129,14 +120,12 @@ class ChatAgent:
             - reason: explanation
             - simple_response: Optional direct response for simple intents
         """
-        # Render intent routing prompt from template
         intent_prompt = render_template(
             "chat/intent_routing_prompt.j2",
             question=question,
             contexts=contexts or []
         )
 
-        # Run the intent router with structured output (async)
         result = await self.intent_router_agent.run(
             intent_prompt,
             model_settings={
@@ -145,7 +134,6 @@ class ChatAgent:
             }
         )
 
-        # Extract structured data
         route: IntentRoute = result.data
 
         return {
