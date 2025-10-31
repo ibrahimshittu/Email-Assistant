@@ -1,152 +1,158 @@
 from __future__ import annotations
 
-from typing import List, Dict, Any
-from time import perf_counter
-from datetime import datetime
+from typing import List, Dict, Any, Optional
 
 from pydantic_ai import Agent
-from openai import OpenAI
 
 from config import load_config
-from services.ingest import embed_texts
-from services.vectorstore import query_chunks
 from utils.template_loader import render_template
-from agents.models.chat import ChatRequest, ChatResponse, Source
+from agents.models.chat import EmailAnswer, IntentRoute
 
 
 config = load_config()
-_openai_client = OpenAI(api_key=config.openai_api_key)
-
-
-def format_contexts(contexts: List[Dict[str, Any]]) -> str:
-    """Format retrieved contexts for prompt inclusion"""
-    parts: List[str] = []
-    for c in contexts:
-        meta = c.get("metadata", {})
-        parts.append(f"[message_id={meta.get('message_id')}] {c.get('text','')}")
-    return "\n\n".join(parts)
-
-
-def retrieve_contexts(
-    account_id: int, question: str, top_k: int
-) -> List[Dict[str, Any]]:
-    """Retrieve relevant email contexts using vector similarity"""
-    q_emb = embed_texts([question])[0]
-    res = query_chunks(account_id, q_emb, top_k=top_k)
-    docs: List[Dict[str, Any]] = []
-    for i in range(len(res.get("ids", [[]])[0])):
-        docs.append(
-            {
-                "text": res["documents"][0][i],
-                "metadata": res["metadatas"][0][i],
-                "distance": res["distances"][0][i],
-            }
-        )
-    return docs
-
-
-def contexts_to_sources(contexts: List[Dict[str, Any]]) -> List[Source]:
-    """Convert raw contexts to Source models"""
-    sources = []
-    for ctx in contexts:
-        meta = ctx.get("metadata", {})
-        # Parse date if it's a string
-        date_val = meta.get("date")
-        if isinstance(date_val, str):
-            try:
-                date_val = datetime.fromisoformat(date_val.replace("Z", "+00:00"))
-            except:
-                date_val = None
-
-        sources.append(
-            Source(
-                message_id=meta.get("message_id", ""),
-                subject=meta.get("subject"),
-                from_addr=meta.get("from"),
-                date=date_val,
-                distance=ctx.get("distance"),
-                snippet=ctx.get("text", "")[:200] if ctx.get("text") else None,
-            )
-        )
-    return sources
 
 
 class ChatAgent:
-    """Main chat agent using Pydantic AI for structured interaction with emails"""
+    """
+    Chat agent responsible for LLM generation only using Pydantic AI.
+
+    The workflow handles retrieval, reranking, etc.
+    This agent only generates answers from provided contexts.
+    """
 
     def __init__(self) -> None:
-        system = render_template("chat/system_prompt.j2")
-        # PydanticAI agent for structured responses
-        self.agent = Agent(model=f"openai:{config.model_name}", system_prompt=system)
+        self.config = config
 
-    def run(self, request: ChatRequest) -> ChatResponse:
+        # Create Pydantic AI agent for answer generation with structured output
+        system_prompt = render_template("chat/email_assistant_system.j2")
+        self.answer_agent = Agent(
+            model=f"openai:{config.model_name}",
+            system_prompt=system_prompt,
+            result_type=EmailAnswer,
+        )
+
+        # Create Pydantic AI agent for intent routing
+        self.intent_router_agent = Agent(
+            model=f"openai:{config.model_name}",
+            result_type=IntentRoute,
+        )
+
+    def generate_answer(
+        self,
+        question: str,
+        contexts: List[Dict[str, Any]],
+        conversation_history: Optional[List[Dict[str, str]]] = None,
+        temperature: float = 0.2,
+        max_tokens: int = 500,
+    ) -> str:
         """
-        Execute chat request and return structured response
+        Generate an answer using the LLM based on retrieved contexts.
 
         Args:
-            request: ChatRequest with question, account_id, and options
+            question: User's question
+            contexts: List of retrieved email contexts with 'text' and 'metadata'
+            conversation_history: Optional conversation history for multi-turn chat
+            temperature: LLM temperature (0.0 = deterministic, 1.0 = creative)
+            max_tokens: Maximum tokens in response
 
         Returns:
-            ChatResponse with answer, sources, and metadata
+            Generated answer as string
         """
-        start_time = perf_counter()
+        # Build context text from retrieved emails
+        context_parts = []
+        for ctx in contexts:
+            meta = ctx.get("metadata", {})
+            text = ctx.get("text", "")
+            message_id = meta.get("message_id", "unknown")
+            subject = meta.get("subject", "")
+            from_addr = meta.get("from_addr", "")
 
-        # Retrieve contexts
-        retrieve_start = perf_counter()
-        contexts = retrieve_contexts(
-            request.account_id, request.question, request.top_k
-        )
-        retrieve_time = (perf_counter() - retrieve_start) * 1000
+            # Format with metadata for better context
+            context_parts.append(
+                f"[message_id={message_id} | from={from_addr} | subject={subject}]\n{text}"
+            )
 
-        # Format contexts for prompt
-        context_text = format_contexts(contexts)
-        prompt = render_template(
-            "chat/user_prompt.j2", context_text=context_text, question=request.question
-        )
+        context_text = "\n\n".join(context_parts)
 
-        # Run agent with PydanticAI
-        generation_start = perf_counter()
-        result = self.agent.run_sync(prompt)
-        generation_time = (perf_counter() - generation_start) * 1000
-
-        # Extract answer from result
-        answer = (
-            getattr(result, "data", None)
-            or getattr(result, "output", None)
-            or str(result)
+        # Render user prompt from template
+        user_prompt = render_template(
+            "chat/email_question_prompt.j2",
+            context_text=context_text,
+            question=question
         )
 
-        total_time = (perf_counter() - start_time) * 1000
+        # Build message history for Pydantic AI
+        # Pydantic AI expects message_history as a list of dicts with 'role' and 'content'
+        message_history = []
+        if conversation_history:
+            # Add last 4 messages for context window
+            message_history = conversation_history[-4:]
 
-        # Convert contexts to sources
-        sources = contexts_to_sources(contexts)
-
-        return ChatResponse(
-            answer=answer,
-            sources=sources,
-            metadata={
-                "latency_ms": round(total_time),
-                "retrieve_ms": round(retrieve_time),
-                "generation_ms": round(generation_time),
-                "top_k": request.top_k,
-                "use_hyde": request.use_hyde,
-                "temperature": request.temperature,
-            },
+        # Run the agent with structured output
+        result = self.answer_agent.run_sync(
+            user_prompt,
+            message_history=message_history,
+            model_settings={
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+            }
         )
 
-    def run_legacy(
-        self, account_id: int, question: str, top_k: int = None
+        # Extract the structured data
+        email_answer: EmailAnswer = result.data
+
+        return email_answer.answer
+
+    async def clarify_and_route(
+        self,
+        question: str,
+        contexts: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
-        """Legacy method for backward compatibility"""
-        if top_k is None:
-            top_k = config.top_k
+        """
+        Clarify intent and route to appropriate action using a single LLM call.
 
-        request = ChatRequest(account_id=account_id, question=question, top_k=top_k)
-        response = self.run(request)
+        This method serves as an intelligent router that:
+        1. Classifies simple questions (greetings, help) -> output directly
+        2. Identifies email queries without contexts -> retrieve
+        3. Evaluates sufficiency of provided contexts -> generate or output error
 
-        # Convert to legacy format
+        Args:
+            question: User's question
+            contexts: Optional retrieved contexts with metadata and distance scores
+
+        Returns:
+            Dict with routing decision containing:
+            - intent_type: 'simple' or 'email_query'
+            - needs_retrieval: bool
+            - has_sufficient_context: Optional[bool]
+            - route_to: 'output', 'retrieve', or 'generate'
+            - reason: explanation
+            - simple_response: Optional direct response for simple intents
+        """
+        # Render intent routing prompt from template
+        intent_prompt = render_template(
+            "chat/intent_routing_prompt.j2",
+            question=question,
+            contexts=contexts or []
+        )
+
+        # Run the intent router with structured output (async)
+        result = await self.intent_router_agent.run(
+            intent_prompt,
+            model_settings={
+                "temperature": 0.0,
+                "max_tokens": 200,
+            }
+        )
+
+        # Extract structured data
+        route: IntentRoute = result.data
+
         return {
-            "answer": response.answer,
-            "sources": [s.model_dump(exclude_none=True) for s in response.sources],
-            "metadata": response.metadata,
+            "intent_type": route.intent_type,
+            "needs_retrieval": route.needs_retrieval,
+            "has_sufficient_context": route.has_sufficient_context,
+            "route_to": route.route_to,
+            "reason": route.reason,
+            "simple_response": route.simple_response,
         }

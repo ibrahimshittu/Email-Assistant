@@ -1,37 +1,47 @@
 from __future__ import annotations
 
-from typing import Dict, Any, Literal
+from typing import Literal
 from time import perf_counter
 
 from langgraph.graph import StateGraph, END
-from openai import OpenAI
+from langgraph.checkpoint.memory import MemorySaver
 
 from config import load_config
 from services.ingest import embed_texts
 from services.vectorstore import query_chunks
 from orchestrator.models.chat import ChatState
+from agents.chat_agent import ChatAgent
 
 
 config = load_config()
-_client = OpenAI(api_key=config.openai_api_key)
+_chat_agent = ChatAgent()
+_checkpointer = MemorySaver()  # In-memory checkpointing
 
 
-def classify_intent(state: ChatState) -> ChatState:
-    """Classify user intent to determine retrieval strategy"""
-    question = state.question.lower()
+async def clarify_intent(state: ChatState) -> ChatState:
+    """
+    LLM-based intent router called once at workflow entry.
+    Routes simple questions to output, email queries to retrieve.
+    """
+    start_time = perf_counter()
 
-    # Simple heuristic classification
-    if len(question) < 5:
-        state.intent = "clarify"
-    elif any(word in question for word in ["who", "what", "when", "where", "find", "search", "show", "list"]):
-        state.intent = "retrieve"
-    else:
-        state.intent = "retrieve"  # Default to retrieval for most questions
+    routing_decision = await _chat_agent.clarify_and_route(
+        question=state.question,
+        contexts=None
+    )
 
-    state.current_step = "retrieve" if state.intent == "retrieve" else "generate"
+    # Store simple response if provided
+    if routing_decision["simple_response"]:
+        state.metadata["simple_response"] = routing_decision["simple_response"]
+
+    # Set next step
+    state.current_step = routing_decision["route_to"]
+
+    # Track timing
+    clarify_time = (perf_counter() - start_time) * 1000
+    state.metadata["clarify_intent_ms"] = round(clarify_time)
+
     return state
-
-
 
 
 def retrieve(state: ChatState) -> ChatState:
@@ -66,93 +76,79 @@ def retrieve(state: ChatState) -> ChatState:
         state.error = f"Retrieval failed: {e}"
         state.raw_contexts = []
 
+    # Route based on result count
     state.current_step = "rerank" if len(state.raw_contexts) > state.top_k else "generate"
+
     return state
 
 
 def rerank(state: ChatState) -> ChatState:
     """Lightweight reranking of retrieved contexts"""
-    if len(state.raw_contexts) <= state.top_k:
-        state.reranked_contexts = state.raw_contexts
-        state.current_step = "generate"
-        return state
-
     start_time = perf_counter()
 
-    # Simple reranking: just take top_k by distance (already sorted)
-    # In a more advanced version, could use LLM-based reranking
+    # Simple reranking: take top_k by distance (already sorted)
     state.reranked_contexts = state.raw_contexts[:state.top_k]
 
     rerank_time = (perf_counter() - start_time) * 1000
     state.metadata["rerank_ms"] = round(rerank_time)
-    state.current_step = "generate"
+
+    return state
+
+
+def output(state: ChatState) -> ChatState:
+    """
+    Output simple responses without LLM generation.
+
+    Used for:
+    1. Simple greetings/help messages (from initial routing)
+    2. Error messages when contexts are insufficient (set by clarify_intent)
+    """
+    start_time = perf_counter()
+
+    # Priority order for answer:
+    # 1. Answer already set by clarify_intent (for insufficient contexts)
+    # 2. Simple response from metadata (for greetings/help)
+    # 3. Default fallback message
+    if state.answer is None:
+        if "simple_response" in state.metadata:
+            state.answer = state.metadata["simple_response"]
+        else:
+            state.answer = "I'm here to help you with your emails. What would you like to know?"
+
+    state.sources = []
+
+    output_time = (perf_counter() - start_time) * 1000
+    state.metadata["output_ms"] = round(output_time)
+
+    state.current_step = "finalize"
     return state
 
 
 def generate(state: ChatState) -> ChatState:
-    """Generate answer using retrieved contexts"""
+    """
+    Generate answer using the ChatAgent with retrieved email contexts.
+
+    Only called for email queries with sufficient contexts.
+    """
     start_time = perf_counter()
 
-    # Use reranked contexts if available, otherwise raw contexts
-    contexts = state.reranked_contexts if state.reranked_contexts else state.raw_contexts
-
-    # Build context text
-    context_parts = []
-    for ctx in contexts:
-        meta = ctx.get("metadata", {})
-        text = ctx.get("text", "")
-        message_id = meta.get("message_id", "unknown")
-        context_parts.append(f"[message_id={message_id}] {text}")
-
-    context_text = "\n\n".join(context_parts)
-
-    # System prompt
-    system_prompt = """You are an email assistant. Answer user questions strictly based on the provided email excerpts.
-
-Guidelines:
-- Only use information from the provided email contexts
-- Cite sources by referencing message_id when possible
-- If the answer is not in the provided emails, say "I don't have enough information in the emails to answer this question"
-- Be concise and helpful
-- Maintain professional tone"""
-
-    # User prompt
-    user_prompt = f"""Email contexts:
-{context_text}
-
-Question: {state.question}
-
-Please provide a helpful answer based on the email contexts above."""
-
-    # Add conversation history if available
-    messages = []
-    if state.conversation_history:
-        messages.extend([
-            {"role": msg["role"], "content": msg["content"]}
-            for msg in state.conversation_history[-4:]  # Last 4 messages
-        ])
-
-    messages.extend([
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_prompt},
-    ])
-
     try:
-        response = _client.chat.completions.create(
-            model=config.model_name,
-            messages=messages,
-            temperature=state.temperature,
-            max_tokens=state.max_tokens,
-            stream=False,
-        )
+        # Use retrieved contexts (reranked if available)
+        contexts = state.reranked_contexts if state.reranked_contexts else state.raw_contexts
 
-        state.answer = response.choices[0].message.content
+        state.answer = _chat_agent.generate_answer(
+            question=state.question,
+            contexts=contexts,
+            conversation_history=state.conversation_history,
+            temperature=state.temperature,
+            max_tokens=state.max_tokens
+        )
 
         # Include the full text content in sources for user to see
         state.sources = []
         for ctx in contexts:
             meta = ctx.get("metadata", {}).copy()
-            meta["text"] = ctx.get("text", "")  # Add the actual text content
+            meta["text"] = ctx.get("text", "")
             state.sources.append(meta)
 
         generation_time = (perf_counter() - start_time) * 1000
@@ -168,71 +164,75 @@ Please provide a helpful answer based on the email contexts above."""
 
 def finalize(state: ChatState) -> ChatState:
     """Finalize the response and add metadata"""
-    # Calculate total latency if not set
-    if "latency_ms" not in state.metadata:
-        total_time = state.metadata.get("retrieve_ms", 0) + \
-                     state.metadata.get("rerank_ms", 0) + \
-                     state.metadata.get("generation_ms", 0)
-        state.metadata["latency_ms"] = total_time
-
+    # Calculate total latency
+    total_time = sum([
+        state.metadata.get("clarify_intent_ms", 0),
+        state.metadata.get("retrieve_ms", 0),
+        state.metadata.get("rerank_ms", 0),
+        state.metadata.get("output_ms", 0),
+        state.metadata.get("generation_ms", 0)
+    ])
+    state.metadata["latency_ms"] = total_time
     state.metadata["top_k"] = state.top_k
-    state.metadata["intent"] = state.intent
-
     state.current_step = "done"
     return state
 
 
-def route_after_classify(state: ChatState) -> Literal["retrieve", "generate"]:
-    """Route based on intent classification"""
-    if state.intent == "retrieve":
-        return "retrieve"
-    else:
-        return "generate"
+def route_after_clarify_intent(state: ChatState) -> Literal["retrieve", "output"]:
+    """Route based on LLM decision: simple -> output, email query -> retrieve"""
+    return state.current_step
 
 
 def route_after_retrieve(state: ChatState) -> Literal["rerank", "generate"]:
-    """Route to reranking or directly to generation"""
-    if len(state.raw_contexts) > state.top_k:
-        return "rerank"
-    return "generate"
+    """Rerank if many results, otherwise generate directly"""
+    return "rerank" if len(state.raw_contexts) > state.top_k else "generate"
 
 
 def build_chat_workflow() -> StateGraph:
-    """Build and compile the chat workflow graph"""
-    # Create graph
+    """
+    Build the chat workflow with single LLM intent router at entry.
+
+    Flow:
+      clarify_intent → [output | retrieve → [rerank] → generate] → finalize
+
+    Routes:
+    - Simple questions → output
+    - Email queries → retrieve → generate (with optional reranking)
+    """
     graph = StateGraph(ChatState)
 
     # Add nodes
-    graph.add_node("classify_intent", classify_intent)
+    graph.add_node("clarify_intent", clarify_intent)
+    graph.add_node("output", output)
     graph.add_node("retrieve", retrieve)
     graph.add_node("rerank", rerank)
     graph.add_node("generate", generate)
     graph.add_node("finalize", finalize)
 
-    # Set entry point
-    graph.set_entry_point("classify_intent")
+    graph.set_entry_point("clarify_intent")
 
-    # Add conditional edges
+    # Routing
     graph.add_conditional_edges(
-        "classify_intent",
-        route_after_classify,
-        {
-            "retrieve": "retrieve",
-            "generate": "generate",
-        }
+        "clarify_intent",
+        route_after_clarify_intent,
+        {"retrieve": "retrieve", "output": "output"}
     )
 
-    # Linear edges
     graph.add_conditional_edges(
         "retrieve",
         route_after_retrieve,
-        {
-            "rerank": "rerank",
-            "generate": "generate",
-        }
+        {"rerank": "rerank", "generate": "generate"}
     )
+
     graph.add_edge("rerank", "generate")
+    graph.add_edge("output", "finalize")
     graph.add_edge("generate", "finalize")
     graph.add_edge("finalize", END)
 
-    return graph.compile()
+    return graph.compile(checkpointer=_checkpointer)
+
+
+# Export the checkpointer for external use
+def get_checkpointer():
+    """Get the workflow checkpointer for managing conversation state"""
+    return _checkpointer
