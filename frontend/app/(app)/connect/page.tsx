@@ -1,9 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getAuthUrl, getMe, syncLatest, type Account, type SyncResponse } from "@/lib/api";
+import {
+  getAuthUrl,
+  getMe,
+  syncLatest,
+  type Account,
+  type SyncResponse,
+} from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { CheckCircle2, Mail, Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
@@ -39,7 +51,7 @@ export default function ConnectPage() {
 
     try {
       const res = await syncLatest();
-      toast.success(`Successfully synced ${res.synced} messages and indexed ${res.indexed_chunks} chunks!`);
+      toast.success(`Successfully synced ${res.synced} messages!`);
       setSyncCompleted(true);
     } catch (e: any) {
       toast.error(e?.message || "Sync failed. Please try again.");
@@ -63,7 +75,9 @@ export default function ConnectPage() {
   return (
     <div className="max-w-2xl w-full mx-auto space-y-6 flex flex-col items-center justify-center min-h-[80vh] px-4">
       <div className="text-center">
-        <h2 className="text-3xl font-bold tracking-tight">Connect Your Email</h2>
+        <h2 className="text-3xl font-bold tracking-tight">
+          Connect Your Email
+        </h2>
         <p className="text-muted-foreground mt-2">
           Securely link your email account through Nylas to get started
         </p>
@@ -95,15 +109,21 @@ export default function ConnectPage() {
             <div className="rounded-lg bg-white p-4 space-y-3 border border-gray-400">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-900 font-semibold">Email</span>
-                <span className="font-medium text-gray-900">{account.email}</span>
+                <span className="font-medium text-gray-900">
+                  {account.email}
+                </span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-900 font-semibold">Account ID</span>
-                <span className="font-mono text-xs text-gray-900">{account.id}</span>
+                <span className="font-mono text-xs text-gray-900">
+                  {account.id}
+                </span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-900 font-semibold">Provider</span>
-                <span className="font-medium text-gray-900 capitalize">{account.provider}</span>
+                <span className="font-medium text-gray-900 capitalize">
+                  {account.provider}
+                </span>
               </div>
             </div>
             <div className="pt-4">
@@ -149,13 +169,13 @@ export default function ConnectPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-3 text-sm text-muted-foreground">
-              <p>
-                By connecting your email account, you'll be able to:
-              </p>
+              <p>By connecting your email account, you'll be able to:</p>
               <ul className="space-y-2 ml-4">
                 <li className="flex items-start gap-2">
                   <CheckCircle2 className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                  <span>Search and query your emails using natural language</span>
+                  <span>
+                    Search and query your emails using natural language
+                  </span>
                 </li>
                 <li className="flex items-start gap-2">
                   <CheckCircle2 className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
@@ -188,4 +208,3 @@ export default function ConnectPage() {
     </div>
   );
 }
-

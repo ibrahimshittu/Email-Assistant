@@ -311,7 +311,7 @@ export default function Page() {
                                   : "Sources"}
                               </button>
                             </DialogTrigger>
-                            <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                            <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden">
                               <DialogHeader>
                                 <DialogTitle>
                                   Email Sources ({message.sources.length})
@@ -321,38 +321,44 @@ export default function Page() {
                                   response
                                 </DialogDescription>
                               </DialogHeader>
-                              <div className="space-y-3 mt-4">
-                                {message.sources.map((source, idx) => (
-                                  <div
-                                    key={idx}
-                                    className="rounded-lg border bg-card p-4 space-y-2 hover:bg-accent/50 transition-colors"
-                                  >
-                                    <div className="font-medium text-sm">
-                                      {source.subject}
-                                    </div>
-                                    <div className="text-muted-foreground text-xs">
-                                      <div className="flex items-center gap-2">
-                                        <span>From: {source.from_addr}</span>
-                                        <span>•</span>
-                                        <span>
-                                          {new Date(
-                                            source.date
-                                          ).toLocaleDateString("en-US", {
-                                            month: "short",
-                                            day: "numeric",
-                                            year: "numeric",
-                                          })}
-                                        </span>
+                              <ScrollArea className="max-h-[60vh] pr-4">
+                                <div className="space-y-3 mt-4 max-w-full">
+                                  {message.sources.map((source, idx) => (
+                                    <div
+                                      key={idx}
+                                      className="rounded-lg border bg-card p-4 space-y-2 hover:bg-accent/50 transition-colors overflow-hidden max-w-full"
+                                    >
+                                      <div className="font-medium text-sm break-words overflow-wrap-anywhere max-w-full">
+                                        {source.subject}
                                       </div>
+                                      <div className="text-muted-foreground text-xs overflow-hidden max-w-full">
+                                        <div className="flex items-center gap-2 flex-wrap max-w-full">
+                                          <span className="break-all max-w-full">From: {source.from_addr}</span>
+                                          <span>•</span>
+                                          <span className="whitespace-nowrap">
+                                            {new Date(
+                                              source.date
+                                            ).toLocaleDateString("en-US", {
+                                              month: "short",
+                                              day: "numeric",
+                                              year: "numeric",
+                                            })}
+                                          </span>
+                                        </div>
+                                      </div>
+                                      {source.text && (
+                                        <div className="pt-2 border-t overflow-hidden max-w-full">
+                                          <p className="text-muted-foreground text-xs leading-relaxed break-words overflow-wrap-anywhere whitespace-normal max-w-full word-break">
+                                            {source.text.length > 500
+                                              ? source.text.substring(0, 500) + "..."
+                                              : source.text}
+                                          </p>
+                                        </div>
+                                      )}
                                     </div>
-                                    {source.text && (
-                                      <p className="text-muted-foreground text-xs leading-relaxed pt-2 border-t">
-                                        {source.text}
-                                      </p>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
+                                  ))}
+                                </div>
+                              </ScrollArea>
                             </DialogContent>
                           </Dialog>
                         )}
