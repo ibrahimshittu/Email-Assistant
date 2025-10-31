@@ -28,7 +28,10 @@ export interface ChatSource {
   subject: string;
   from_addr: string;
   date: string;
-  snippet: string;
+  thread_id: string;
+  text: string;
+  chunk_index: number;
+  snippet?: string;
   score?: number;
 }
 

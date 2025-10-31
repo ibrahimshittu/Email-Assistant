@@ -44,20 +44,43 @@ export async function streamChat(
   }
 
   try {
+    let buffer = "";
+    let currentEvent = "";
+
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
 
-      const chunk = decoder.decode(value);
-      const lines = chunk.split("\n");
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+
+      // Keep the last incomplete line in the buffer
+      buffer = lines.pop() || "";
 
       for (const line of lines) {
-        if (line.startsWith("data: ")) {
+        const trimmed = line.trim();
+        if (!trimmed) {
+          // Empty line resets the event
+          currentEvent = "";
+          continue;
+        }
+
+        if (trimmed.startsWith("event:")) {
+          currentEvent = trimmed.substring(6).trim();
+        } else if (trimmed.startsWith("data:")) {
+          const dataStr = trimmed.substring(5).trim();
+
+          if (!dataStr || !currentEvent) continue;
+
           try {
-            const data = JSON.parse(line.slice(6));
-            onEvent(data);
+            const data = JSON.parse(dataStr);
+
+            onEvent({
+              event: currentEvent as "sources" | "token" | "done" | "error",
+              data,
+            });
           } catch (e) {
-            console.error("Failed to parse SSE data:", e);
+            console.error("Failed to parse SSE data:", dataStr, e);
           }
         }
       }

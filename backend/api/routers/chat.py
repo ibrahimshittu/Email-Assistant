@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sse_starlette.sse import EventSourceResponse
@@ -83,7 +84,7 @@ async def chat_stream(request: ChatRequest, db: Session = Depends(get_db)):
                     final_sources = node_output["sources"]
                     yield {
                         "event": "sources",
-                        "data": {"sources": final_sources},
+                        "data": json.dumps({"sources": final_sources}),
                     }
 
                 if "answer" in node_output and node_output.get("answer"):
@@ -91,8 +92,8 @@ async def chat_stream(request: ChatRequest, db: Session = Depends(get_db)):
 
         if final_answer:
             for char in final_answer:
-                yield {"event": "token", "data": {"token": char}}
+                yield {"event": "token", "data": json.dumps({"token": char})}
 
-        yield {"event": "done", "data": {"sources": final_sources or []}}
+        yield {"event": "done", "data": json.dumps({"sources": final_sources or []})}
 
     return EventSourceResponse(event_publisher())
