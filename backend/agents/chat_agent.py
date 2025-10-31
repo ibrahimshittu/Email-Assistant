@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from typing import List, Dict, Any, Optional
 
-from pydantic_ai import Agent
+from pydantic_ai import Agent, RunContext
+from pydantic_ai.messages import ModelMessage
+import tiktoken
 
 from config import load_config
 from utils.template_loader import render_template
@@ -10,6 +12,36 @@ from agents.models.chat import EmailAnswer, IntentRoute
 
 
 config = load_config()
+
+
+def trim_conversation_history(messages: List[ModelMessage]) -> List[ModelMessage]:
+    """
+    Trim messages based on token count to prevent exceeding context limits.
+    Keeps the most recent messages within a 2000 token budget.
+    """
+    if not messages:
+        return messages
+
+    try:
+        encoding = tiktoken.encoding_for_model("gpt-4")
+    except KeyError:
+        encoding = tiktoken.get_encoding("cl100k_base")
+
+    max_tokens = 2000
+    total_tokens = 0
+    trimmed_messages = []
+
+    for message in reversed(messages):
+        message_str = str(message)
+        message_tokens = len(encoding.encode(message_str))
+
+        if total_tokens + message_tokens > max_tokens:
+            break
+
+        total_tokens += message_tokens
+        trimmed_messages.insert(0, message)
+
+    return trimmed_messages if trimmed_messages else messages[-1:]
 
 
 class ChatAgent:
@@ -23,18 +55,17 @@ class ChatAgent:
     def __init__(self) -> None:
         self.config = config
 
-        # Create Pydantic AI agent for answer generation with structured output
         system_prompt = render_template("chat/email_assistant_system.j2")
         self.answer_agent = Agent(
             model=f"openai:{config.model_name}",
             system_prompt=system_prompt,
-            result_type=EmailAnswer,
+            output_type=EmailAnswer,
+            history_processors=[trim_conversation_history],
         )
 
-        # Create Pydantic AI agent for intent routing
         self.intent_router_agent = Agent(
             model=f"openai:{config.model_name}",
-            result_type=IntentRoute,
+            output_type=IntentRoute,
         )
 
     async def generate_answer(
@@ -78,20 +109,16 @@ class ChatAgent:
             question=question
         )
 
-        message_history = []
-        if conversation_history:
-            message_history = conversation_history[-4:]
-
         result = await self.answer_agent.run(
             user_prompt,
-            message_history=message_history,
+            message_history=conversation_history or [],
             model_settings={
                 "temperature": temperature,
                 "max_tokens": max_tokens,
             }
         )
 
-        email_answer: EmailAnswer = result.data
+        email_answer: EmailAnswer = result.output
         return email_answer.answer
 
     async def clarify_and_route(
@@ -134,7 +161,7 @@ class ChatAgent:
             }
         )
 
-        route: IntentRoute = result.data
+        route: IntentRoute = result.output
 
         return {
             "intent_type": route.intent_type,

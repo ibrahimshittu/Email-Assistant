@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -82,12 +82,12 @@ async def sync_latest(db: Session = Depends(get_db)):
     if not state:
         state = SyncState(
             account_id=acct.id,
-            last_synced_at=datetime.utcnow(),
+            last_synced_at=datetime.now(UTC),
             total_messages=inserted,
         )
         db.add(state)
     else:
-        state.last_synced_at = datetime.utcnow()
+        state.last_synced_at = datetime.now(UTC)
         state.total_messages = (state.total_messages or 0) + inserted
     db.commit()
 

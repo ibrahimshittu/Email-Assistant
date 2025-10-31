@@ -52,7 +52,7 @@ async def nylas_callback(
         try:
             email = nylas.get_grant_email(grant_id)
         except Exception:
-            email = "unknown@example.com"
+            email = None
 
     # Check if account already exists
     acct = db.query(Account).filter(Account.nylas_grant_id == grant_id).first()

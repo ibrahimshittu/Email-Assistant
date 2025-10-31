@@ -58,7 +58,7 @@ class NylasClient:
         resp = requests.get(url, headers=headers, timeout=30)
         resp.raise_for_status()
         data = resp.json()
-        return data.get("data", {}).get("email") or data.get("email", "unknown@example.com")
+        return data.get("data", {}).get("email") or data.get("email")
 
     @retry(
         wait=wait_exponential(multiplier=1, min=1, max=10), stop=stop_after_attempt(3)

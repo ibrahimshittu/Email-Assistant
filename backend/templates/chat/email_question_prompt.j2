@@ -1,6 +1,45 @@
-Email contexts:
+<task>
+Answer the user's question about their emails using the provided email contexts. Your response must be accurate, concise, and directly address the question.
+</task>
+
+<email_contexts>
 {{ context_text }}
+</email_contexts>
 
-Question: {{ question }}
+<user_question>
+{{ question }}
+</user_question>
 
-Please provide a helpful answer based on the email contexts above.
+<instructions>
+<step number="1">
+Analyze the user's question to understand what information they need
+</step>
+
+<step number="2">
+Review the provided email contexts and identify relevant information:
+- Email content and subjects
+- Sender and recipient information
+- Dates and timestamps
+- Attachments or links mentioned
+</step>
+
+<step number="3">
+Synthesize a clear answer that:
+- Directly addresses the question
+- Cites specific emails when relevant (mention sender/subject)
+- Stays within the scope of the provided contexts
+- Is concise but complete
+</step>
+
+<constraints>
+- Only use information from the provided email contexts
+- If contexts don't contain the answer, say so clearly
+- Don't make assumptions beyond what's stated in the emails
+- Maintain a professional, helpful tone
+- For factual questions, be precise with details (dates, names, amounts)
+</constraints>
+</instructions>
+
+<output_format>
+Provide your answer as clear, natural language. No need for XML tags in the response.
+</output_format>
