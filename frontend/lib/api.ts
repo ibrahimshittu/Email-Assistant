@@ -53,36 +53,8 @@ export async function getMe(): Promise<MeResponse> {
   return res.json();
 }
 
-export async function listAccounts(): Promise<{ accounts: Account[] }> {
-  const res = await fetch(`${BACKEND}/auth/accounts`, { cache: "no-store" });
-  if (!res.ok) throw new Error("Failed to list accounts");
-  return res.json();
-}
-
 export async function syncLatest(): Promise<SyncResponse> {
   const res = await fetch(`${BACKEND}/sync/latest`, { method: "POST" });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
-}
-
-export async function chat(
-  question: string,
-  options?: {
-    top_k?: number;
-    temperature?: number;
-    max_tokens?: number;
-  }
-): Promise<ChatResponse> {
-  const res = await fetch(`${BACKEND}/chat`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      question,
-      top_k: options?.top_k ?? 6,
-      temperature: options?.temperature,
-      max_tokens: options?.max_tokens,
-    }),
-  });
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }

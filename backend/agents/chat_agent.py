@@ -131,25 +131,12 @@ class ChatAgent:
         max_tokens: int = 2000,
     ) -> IntentRoute:
         """
-        Clarify intent and route to appropriate action using a single LLM call.
+        Clarify intent and route to appropriate action.
 
         This method serves as an intelligent router that:
         1. Classifies simple questions (greetings, help) -> output directly
         2. Identifies email queries without contexts -> retrieve
         3. Evaluates sufficiency of provided contexts -> generate or output error
-
-        Args:
-            question: User's question
-            contexts: Optional retrieved contexts with metadata and distance scores
-
-        Returns:
-            IntentRoute with routing decision containing:
-            - intent_type: 'simple' or 'email_query'
-            - needs_retrieval: bool
-            - has_sufficient_context: Optional[bool]
-            - route_to: 'output', 'retrieve', or 'generate'
-            - reason: explanation
-            - simple_response: Optional direct response for simple intents
         """
         today = datetime.now().strftime("%B %d, %Y")
         intent_prompt = render_template(
