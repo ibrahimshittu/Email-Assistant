@@ -270,7 +270,7 @@ export default function Page() {
               </h1>
               <p className="text-muted-foreground mb-2 max-w-md">
                 Ask me anything about your emails. I can help you find messages,
-                summarize threads, and extract information.
+                summarize threads, and answer questions about your emails.
               </p>
             </div>
           ) : (
@@ -372,9 +372,9 @@ export default function Page() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Enter a prompt here"
+              placeholder="Ask me anything about your emails"
               disabled={loading}
-              className="pr-12 h-12 text-base"
+              className="pr-12 h-12 text-base border-[0.5px] border-gray-600"
             />
             <Button
               onClick={handleSend}
