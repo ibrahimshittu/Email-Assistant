@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 
-# Disable ChromaDB telemetry completely to avoid version compatibility issues
 os.environ["ANONYMIZED_TELEMETRY"] = "False"
 os.environ["CHROMA_TELEMETRY"] = "False"
 os.environ["CHROMA_TELEMETRY_IMPL"] = "None"

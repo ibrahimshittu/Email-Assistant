@@ -60,38 +60,3 @@ class SyncState(Base):
     account_id = Column(Integer, ForeignKey("accounts.id"), primary_key=True)
     last_synced_at = Column(DateTime, nullable=True)
     total_messages = Column(Integer, default=0)
-
-
-class QAHistory(Base):
-    __tablename__ = "qa_history"
-
-    id = Column(Integer, primary_key=True)
-    account_id = Column(Integer, ForeignKey("accounts.id"), index=True)
-    question = Column(Text)
-    answer = Column(Text)
-    latency_ms = Column(Integer)
-    used_hyde = Column(Boolean, default=False)
-    top_k = Column(Integer, default=6)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-
-class EvalRun(Base):
-    __tablename__ = "eval_runs"
-
-    id = Column(Integer, primary_key=True)
-    name = Column(String(255))
-    created_at = Column(DateTime, default=datetime.utcnow)
-    config_json = Column(Text)
-
-
-class EvalItem(Base):
-    __tablename__ = "eval_items"
-
-    id = Column(Integer, primary_key=True)
-    run_id = Column(Integer, ForeignKey("eval_runs.id"), index=True)
-    question = Column(Text)
-    reference = Column(Text)
-    answer = Column(Text)
-    faithfulness = Column(Integer)  # 0-1 scaled as int percent
-    relevance = Column(Integer)  # 0-1 scaled as int percent
-    latency_ms = Column(Integer)

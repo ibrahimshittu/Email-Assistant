@@ -6,7 +6,6 @@ import {
   getMe,
   syncLatest,
   type Account,
-  type SyncResponse,
 } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import {
