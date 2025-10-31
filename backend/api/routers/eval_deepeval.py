@@ -42,14 +42,17 @@ async def eval_deepeval_run(db: Session = Depends(get_db)):
     # Generate sample questions
     samples = []
     for m in msgs:
-        # Question 1: Subject query
-        q1 = f"What is the subject of the email with message_id={m.message_id}?"
-        ref1 = m.subject or ""
+        # Extract sender name (email address or display name)
+        sender_name = m.from_addr.split('@')[0] if m.from_addr and '@' in m.from_addr else (m.from_addr or "unknown")
+
+        # Question 1: Check for updates from sender
+        q1 = f"Do we have any updates from {sender_name}?"
+        ref1 = f"Yes, there is an email from {m.from_addr} with subject: {m.subject}"
         samples.append({"question": q1, "expected_output": ref1})
 
-        # Question 2: Sender query
-        q2 = f"Who sent the email with subject '{m.subject}'?"
-        ref2 = m.from_addr or ""
+        # Question 2: What did sender say/send
+        q2 = f"What did {sender_name} send about?"
+        ref2 = m.subject or "No subject"
         samples.append({"question": q2, "expected_output": ref2})
 
     async def ask_fn(question: str):
