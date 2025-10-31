@@ -46,7 +46,6 @@ async def chat(payload: Dict[str, Any], db: Session = Depends(get_db)):
         account_id=acct.id,
         question=question,
         top_k=int((payload or {}).get("top_k", config.top_k)),
-        use_hyde=(payload or {}).get("use_hyde", False),
         temperature=float((payload or {}).get("temperature", 0.2)),
         max_tokens=int((payload or {}).get("max_tokens", 500)),
         conversation_history=(payload or {}).get("conversation_history", [])
@@ -69,7 +68,6 @@ async def chat(payload: Dict[str, Any], db: Session = Depends(get_db)):
 async def chat_stream(
     question: str,
     top_k: Optional[int] = None,
-    use_hyde: bool = False,
     temperature: float = 0.2,
     db: Session = Depends(get_db)
 ):
@@ -83,25 +81,8 @@ async def chat_stream(
     if top_k is None:
         top_k = config.top_k
 
-    # Precompute retrieval once (streaming is only for generation)
+    # Use original question for retrieval
     query_text = question
-    if use_hyde:
-        # Generate hypothetical document
-        hyde_prompt = f"""Generate a hypothetical email excerpt that would contain the answer to this question:
-Question: {question}
-
-Write only the email content (1-2 paragraphs), not the question or explanation."""
-        try:
-            hyde_resp = _client.chat.completions.create(
-                model=config.model_name,
-                messages=[{"role": "user", "content": hyde_prompt}],
-                temperature=0.7,
-                max_tokens=200,
-            )
-            query_text = hyde_resp.choices[0].message.content
-        except:
-            pass  # Fall back to original question
-
     q_emb = embed_texts([query_text])[0]
     res = query_chunks(acct.id, q_emb, top_k=top_k)
     contexts = []

@@ -32,41 +32,13 @@ def classify_intent(state: ChatState) -> ChatState:
     return state
 
 
-def maybe_hyde(state: ChatState) -> ChatState:
-    """Generate hypothetical document for HyDE retrieval if enabled"""
-    if not state.use_hyde or state.intent != "retrieve":
-        state.current_step = "retrieve"
-        return state
-
-    # Generate hypothetical email that would answer the question
-    prompt = f"""Generate a hypothetical email excerpt that would contain the answer to this question:
-Question: {state.question}
-
-Write only the email content (1-2 paragraphs), not the question or explanation."""
-
-    try:
-        response = _client.chat.completions.create(
-            model=config.model_name,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.7,
-            max_tokens=200,
-        )
-        state.hyde_question = response.choices[0].message.content
-    except Exception as e:
-        # Fall back to original question if HyDE fails
-        state.error = f"HyDE generation failed: {e}"
-        state.hyde_question = None
-
-    state.current_step = "retrieve"
-    return state
 
 
 def retrieve(state: ChatState) -> ChatState:
     """Retrieve relevant email contexts using vector similarity"""
     start_time = perf_counter()
 
-    # Use HyDE question if available, otherwise use original
-    query_text = state.hyde_question if state.hyde_question else state.question
+    query_text = state.question
 
     try:
         # Embed query
@@ -175,7 +147,13 @@ Please provide a helpful answer based on the email contexts above."""
         )
 
         state.answer = response.choices[0].message.content
-        state.sources = [ctx.get("metadata", {}) for ctx in contexts]
+
+        # Include the full text content in sources for user to see
+        state.sources = []
+        for ctx in contexts:
+            meta = ctx.get("metadata", {}).copy()
+            meta["text"] = ctx.get("text", "")  # Add the actual text content
+            state.sources.append(meta)
 
         generation_time = (perf_counter() - start_time) * 1000
         state.metadata["generation_ms"] = round(generation_time)
@@ -198,18 +176,15 @@ def finalize(state: ChatState) -> ChatState:
         state.metadata["latency_ms"] = total_time
 
     state.metadata["top_k"] = state.top_k
-    state.metadata["use_hyde"] = state.use_hyde
     state.metadata["intent"] = state.intent
 
     state.current_step = "done"
     return state
 
 
-def route_after_classify(state: ChatState) -> Literal["maybe_hyde", "generate"]:
+def route_after_classify(state: ChatState) -> Literal["retrieve", "generate"]:
     """Route based on intent classification"""
-    if state.intent == "retrieve" and state.use_hyde:
-        return "maybe_hyde"
-    elif state.intent == "retrieve":
+    if state.intent == "retrieve":
         return "retrieve"
     else:
         return "generate"
@@ -229,7 +204,6 @@ def build_chat_workflow() -> StateGraph:
 
     # Add nodes
     graph.add_node("classify_intent", classify_intent)
-    graph.add_node("maybe_hyde", maybe_hyde)
     graph.add_node("retrieve", retrieve)
     graph.add_node("rerank", rerank)
     graph.add_node("generate", generate)
@@ -243,14 +217,12 @@ def build_chat_workflow() -> StateGraph:
         "classify_intent",
         route_after_classify,
         {
-            "maybe_hyde": "maybe_hyde",
             "retrieve": "retrieve",
             "generate": "generate",
         }
     )
 
     # Linear edges
-    graph.add_edge("maybe_hyde", "retrieve")
     graph.add_conditional_edges(
         "retrieve",
         route_after_retrieve,

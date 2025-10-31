@@ -10,14 +10,12 @@ class ChatState(BaseModel):
     account_id: int
     question: str
     top_k: int = 6
-    use_hyde: bool = False
     temperature: float = 0.2
     max_tokens: int = 500
     conversation_history: List[Dict[str, str]] = Field(default_factory=list)
 
     # Processing state
     intent: Optional[Literal["retrieve", "direct", "clarify"]] = None
-    hyde_question: Optional[str] = None  # Generated hypothetical document
     raw_contexts: List[Dict[str, Any]] = Field(default_factory=list)
     reranked_contexts: List[Dict[str, Any]] = Field(default_factory=list)
 

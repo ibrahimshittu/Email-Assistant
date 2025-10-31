@@ -28,6 +28,12 @@ def normalize_message(nylas_msg: Dict[str, Any]) -> Dict[str, Any]:
     body_text = strip_quotes_and_signature(body_text)
     body_text = normalize_text(body_text)
 
+    date_timestamp = nylas_msg.get("date") or nylas_msg.get("received_at") or 0
+    if date_timestamp:
+        parsed_date = datetime.fromtimestamp(date_timestamp)
+    else:
+        parsed_date = datetime.now()
+
     return {
         "message_id": str(nylas_msg.get("id")),
         "thread_id": str(nylas_msg.get("thread_id")),
@@ -38,7 +44,7 @@ def normalize_message(nylas_msg: Dict[str, Any]) -> Dict[str, Any]:
         "cc_addrs": ", ".join(
             [x.get("email", "") for x in (nylas_msg.get("cc") or [])]
         ),
-        "date": datetime.fromtimestamp(nylas_msg.get("received_at", 0)),
+        "date": parsed_date,
         "subject": nylas_msg.get("subject") or "",
         "body_text": body_text,
         "body_html": body_html,
