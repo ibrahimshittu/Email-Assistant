@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import os
 
+# Disable ChromaDB telemetry completely to avoid version compatibility issues
 os.environ["ANONYMIZED_TELEMETRY"] = "False"
 os.environ["CHROMA_TELEMETRY"] = "False"
+os.environ["CHROMA_TELEMETRY_IMPL"] = "None"
+os.environ["POSTHOG_DISABLED"] = "1"
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

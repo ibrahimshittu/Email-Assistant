@@ -5,6 +5,8 @@ import os
 # Disable ChromaDB telemetry before importing chromadb
 os.environ["ANONYMIZED_TELEMETRY"] = "False"
 os.environ["CHROMA_TELEMETRY"] = "False"
+os.environ["CHROMA_TELEMETRY_IMPL"] = "None"
+os.environ["POSTHOG_DISABLED"] = "1"
 
 from typing import List, Dict, Any
 from pathlib import Path

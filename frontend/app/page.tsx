@@ -208,7 +208,10 @@ export default function Page() {
               ) : syncSuccess ? (
                 <CheckCircle2 className="h-4 w-4 text-green-600" />
               ) : (
-                <RefreshCw className="h-4 w-4" />
+                <>
+                  <RefreshCw className="h-4 w-4" />
+                  <span>Sync Emails</span>
+                </>
               )}
             </Button>
             <Dialog open={connectOpen} onOpenChange={setConnectOpen}>
@@ -314,7 +317,8 @@ export default function Page() {
                                   Email Sources ({message.sources.length})
                                 </DialogTitle>
                                 <DialogDescription>
-                                  These emails were used to generate the response
+                                  These emails were used to generate the
+                                  response
                                 </DialogDescription>
                               </DialogHeader>
                               <div className="space-y-3 mt-4">

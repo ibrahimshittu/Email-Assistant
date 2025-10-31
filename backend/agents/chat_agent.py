@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
-from pydantic_ai import Agent, RunContext
+from pydantic_ai import Agent
 from pydantic_ai.messages import ModelMessage
 import tiktoken
 
