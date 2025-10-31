@@ -2,6 +2,11 @@
 Answer the user's question about their emails using the provided email contexts. Your response must be accurate, concise, and directly address the question.
 </task>
 
+<context>
+<current_date>{{ today }}</current_date>
+<note>Use this date to understand relative time references like "yesterday", "last week", "this month", etc.</note>
+</context>
+
 <email_contexts>
 {{ context_text }}
 </email_contexts>

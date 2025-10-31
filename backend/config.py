@@ -24,6 +24,8 @@ class AppConfig(BaseSettings):
 
     # Models/knobs
     model_name: str = "gpt-4o-mini"
+    intent_router_model: str = "gpt-4.1-mini-2025-04-14"
+    answer_model: str = "gpt-4.1-2025-04-14"
     embedding_model: str = "text-embedding-3-small"
     top_k: int = 6
 

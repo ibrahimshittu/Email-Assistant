@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import List, Dict, Any, Optional
+from datetime import datetime
 
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.messages import ModelMessage
@@ -57,14 +58,14 @@ class ChatAgent:
 
         system_prompt = render_template("chat/email_assistant_system.j2")
         self.answer_agent = Agent(
-            model=f"openai:{config.model_name}",
+            model=f"openai:{config.answer_model}",
             system_prompt=system_prompt,
             output_type=EmailAnswer,
             history_processors=[trim_conversation_history],
         )
 
         self.intent_router_agent = Agent(
-            model=f"openai:{config.model_name}",
+            model=f"openai:{config.intent_router_model}",
             output_type=IntentRoute,
         )
 
@@ -103,10 +104,12 @@ class ChatAgent:
 
         context_text = "\n\n".join(context_parts)
 
+        today = datetime.now().strftime("%B %d, %Y")
         user_prompt = render_template(
             "chat/email_question_prompt.j2",
             context_text=context_text,
-            question=question
+            question=question,
+            today=today
         )
 
         result = await self.answer_agent.run(
@@ -147,27 +150,19 @@ class ChatAgent:
             - reason: explanation
             - simple_response: Optional direct response for simple intents
         """
+        today = datetime.now().strftime("%B %d, %Y")
         intent_prompt = render_template(
             "chat/intent_routing_prompt.j2",
             question=question,
-            contexts=contexts or []
+            contexts=contexts or [],
+            today=today
         )
 
         result = await self.intent_router_agent.run(
             intent_prompt,
             model_settings={
                 "temperature": 0.0,
-                "max_tokens": 200,
+                "max_tokens": 2000
             }
         )
-
-        route: IntentRoute = result.output
-
-        return {
-            "intent_type": route.intent_type,
-            "needs_retrieval": route.needs_retrieval,
-            "has_sufficient_context": route.has_sufficient_context,
-            "route_to": route.route_to,
-            "reason": route.reason,
-            "simple_response": route.simple_response,
-        }
+        return result.output

@@ -30,10 +30,10 @@ async def clarify_intent(state: ChatState) -> ChatState:
         contexts=None
     )
 
-    if routing_decision["simple_response"]:
-        state.metadata["simple_response"] = routing_decision["simple_response"]
+    if routing_decision.simple_response:
+        state.answer = routing_decision.simple_response
 
-    state.current_step = routing_decision["route_to"]
+    state.current_step = routing_decision.route_to
 
     clarify_time = (perf_counter() - start_time) * 1000
     state.metadata["clarify_intent_ms"] = round(clarify_time)
@@ -48,15 +48,9 @@ def retrieve(state: ChatState) -> ChatState:
     query_text = state.question
 
     try:
-        # Embed query
         q_emb = embed_texts([query_text])[0]
+        res = query_chunks(state.account_id, q_emb, top_k=state.top_k)
 
-        # Retrieve from vector store
-        # Fetch more than top_k for potential reranking
-        fetch_k = state.top_k * 2
-        res = query_chunks(state.account_id, q_emb, top_k=fetch_k)
-
-        # Parse results
         contexts = []
         for i in range(len(res.get("ids", [[]])[0])):
             contexts.append({
@@ -73,41 +67,14 @@ def retrieve(state: ChatState) -> ChatState:
         state.error = f"Retrieval failed: {e}"
         state.raw_contexts = []
 
-    state.current_step = "rerank" if len(state.raw_contexts) > state.top_k else "generate"
-    return state
-
-
-def rerank(state: ChatState) -> ChatState:
-    """Lightweight reranking of retrieved contexts"""
-    start_time = perf_counter()
-
-    state.reranked_contexts = state.raw_contexts[:state.top_k]
-
-    rerank_time = (perf_counter() - start_time) * 1000
-    state.metadata["rerank_ms"] = round(rerank_time)
-
     return state
 
 
 def output(state: ChatState) -> ChatState:
-    """Output simple responses and finalize"""
+    """Output final responses - ensures all paths have proper answer and sources"""
     if state.answer is None:
-        if "simple_response" in state.metadata:
-            state.answer = state.metadata["simple_response"]
-        else:
-            state.answer = "I'm here to help you with your emails. What would you like to know?"
+        state.answer = "I'm here to help you with your emails. What would you like to know?"
 
-    state.sources = []
-
-    total_time = sum([
-        state.metadata.get("clarify_intent_ms", 0),
-        state.metadata.get("retrieve_ms", 0),
-        state.metadata.get("rerank_ms", 0),
-        state.metadata.get("generation_ms", 0)
-    ])
-    state.metadata["latency_ms"] = total_time
-    state.metadata["top_k"] = state.top_k
-    state.current_step = "done"
     return state
 
 
@@ -116,18 +83,16 @@ async def generate(state: ChatState) -> ChatState:
     start_time = perf_counter()
 
     try:
-        contexts = state.reranked_contexts if state.reranked_contexts else state.raw_contexts
-
         state.answer = await _chat_agent.generate_answer(
             question=state.question,
-            contexts=contexts,
+            contexts=state.raw_contexts,
             conversation_history=state.conversation_history,
             temperature=state.temperature,
             max_tokens=state.max_tokens
         )
 
         state.sources = []
-        for ctx in contexts:
+        for ctx in state.raw_contexts:
             meta = ctx.get("metadata", {}).copy()
             meta["text"] = ctx.get("text", "")
             state.sources.append(meta)
@@ -139,8 +104,6 @@ async def generate(state: ChatState) -> ChatState:
         state.error = f"Generation failed: {e}"
         state.answer = f"Sorry, I encountered an error while generating the answer: {e}"
 
- 
-    state.current_step = "done"
     return state
 
 
@@ -149,9 +112,6 @@ def route_after_clarify_intent(state: ChatState) -> Literal["retrieve", "output"
     return state.current_step
 
 
-def route_after_retrieve(state: ChatState) -> Literal["rerank", "generate"]:
-    """Rerank if many results, otherwise generate directly"""
-    return "rerank" if len(state.raw_contexts) > state.top_k else "generate"
 
 
 def build_chat_workflow() -> StateGraph:
@@ -159,18 +119,17 @@ def build_chat_workflow() -> StateGraph:
     Build the chat workflow with single LLM intent router at entry.
 
     Flow:
-      clarify_intent → [output | retrieve → [rerank] → generate]
+      clarify_intent → [output → END | retrieve → generate → output → END]
 
     Routes:
     - Simple questions → output → END
-    - Email queries → retrieve → generate (with optional reranking) → END
+    - Email queries → retrieve → generate → output → END
     """
     graph = StateGraph(ChatState)
 
     graph.add_node("clarify_intent", clarify_intent)
     graph.add_node("output", output)
     graph.add_node("retrieve", retrieve)
-    graph.add_node("rerank", rerank)
     graph.add_node("generate", generate)
 
     graph.set_entry_point("clarify_intent")
@@ -181,15 +140,9 @@ def build_chat_workflow() -> StateGraph:
         {"retrieve": "retrieve", "output": "output"}
     )
 
-    graph.add_conditional_edges(
-        "retrieve",
-        route_after_retrieve,
-        {"rerank": "rerank", "generate": "generate"}
-    )
-
-    graph.add_edge("rerank", "generate")
+    graph.add_edge("retrieve", "generate")
+    graph.add_edge("generate", "output")
     graph.add_edge("output", END)
-    graph.add_edge("generate", END)
 
     return graph.compile(checkpointer=_checkpointer)
 

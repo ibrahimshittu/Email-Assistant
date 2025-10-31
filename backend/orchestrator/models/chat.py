@@ -17,7 +17,6 @@ class ChatState(BaseModel):
     # Processing state
     intent: Optional[Literal["retrieve", "direct", "clarify"]] = None
     raw_contexts: List[Dict[str, Any]] = Field(default_factory=list)
-    reranked_contexts: List[Dict[str, Any]] = Field(default_factory=list)
 
     # Output
     answer: Optional[str] = None

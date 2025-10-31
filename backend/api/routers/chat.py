@@ -67,25 +67,32 @@ async def chat_stream(request: ChatRequest, db: Session = Depends(get_db)):
         top_k=request.top_k,
         temperature=request.temperature,
         max_tokens=request.max_tokens,
+        conversation_history=[]
     )
 
     async def event_publisher():
+        final_answer = None
+        final_sources = None
+
         async for chunk in _workflow.astream(
             state,
             config={"configurable": {"thread_id": f"chat_stream_{acct.id}"}}
         ):
-            # Send sources when available
-            if "sources" in chunk and chunk.get("sources"):
-                yield {
-                    "event": "sources",
-                    "data": {"sources": chunk["sources"]},
-                }
+            for node_name, node_output in chunk.items():
+                if "sources" in node_output and node_output.get("sources"):
+                    final_sources = node_output["sources"]
+                    yield {
+                        "event": "sources",
+                        "data": {"sources": final_sources},
+                    }
 
-            # Stream answer tokens if available
-            if "answer" in chunk and chunk.get("answer"):
-                for char in chunk["answer"]:
-                    yield {"event": "token", "data": {"token": char}}
+                if "answer" in node_output and node_output.get("answer"):
+                    final_answer = node_output["answer"]
 
-        yield {"event": "done", "data": {}}
+        if final_answer:
+            for char in final_answer:
+                yield {"event": "token", "data": {"token": char}}
+
+        yield {"event": "done", "data": {"sources": final_sources or []}}
 
     return EventSourceResponse(event_publisher())
